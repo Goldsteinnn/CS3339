@@ -19,23 +19,26 @@ def immBitTo32BitConverter(num, bitsize):
         extendMask = 0xFFFFF000
 
 def imm32BitUnsignedTo32BitSignedConverter(num):
-    return (num & 0xffffffff)
+    # Add this function or find built-in
 
 def get_opcode(instructions, mem, biMem):
     for j in range(len(instructions)):
         mem.append((int(instructions[j], base=2)))  # stores binary value for analysis
-        #binmem.append(instructions[j])  # stores full value for pretty printing
+        binMem.append(instructions[j])  # stores full value for pretty printing
+
 
         print("mem: " )
         print mem
        # print("binMem: " + binMem)
 
+# get input and output files from command line args
 for i in range(len(sys.argv)):
     if (sys.argv[i] == '-i' and i < (len(sys.argv) - 1)):
         inputFileName = sys.argv[i + 1]
         print inputFileName
     elif (sys.argv[i] == '-o' and i < (len(sys.argv) - 1)):
         outputFileName = sys.argv[i + 1]
-
+# put instructions into a list then get the opcodes
+# into a separate list
 instructions = [line.rstrip() for line in open(inputFileName, 'rb')]
 get_opcode(instructions, mem, binMem)
