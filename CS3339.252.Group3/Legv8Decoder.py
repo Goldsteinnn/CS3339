@@ -38,9 +38,4 @@ for i in range(len(sys.argv)):
         outputFileName = sys.argv[i + 1]
 
 instructions = [line.rstrip() for line in open(inputFileName, 'rb')]
-
-for instruction in instructions:
-    print len(instructions)
-    get_opcode(instructions, mem, binMem)
-
-
+get_opcode(instructions, mem, binMem)
