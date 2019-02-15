@@ -61,7 +61,13 @@ class Dissembler:
             print >> outFile, (instrSpaced[j] + "\t" + str(pc) + "\t" + opcodeStr[j] + "\t" + arg1Str[j] + arg2Str[j] + arg3Str[j])
             pc += 4
 
-#get input and output files from command line args
+    def run(self):
+        disassemble.get_opcode()
+        disassemble.findop()
+        disassemble.print_dissembled()
+
+
+# get input and output files from command line args
 for i in range(len(sys.argv)):
     if (sys.argv[i] == '-i' and i < (len(sys.argv) - 1)):
         inputFileName = sys.argv[i + 1]
@@ -86,6 +92,4 @@ for i in range(numInst, len(instructions)):
     binMem.append(int(instructions[i], base=2))
 
 disassemble = Dissembler()
-disassemble.get_opcode()
-disassemble.findop()
-disassemble.print_dissembled()
+disassemble.run()
