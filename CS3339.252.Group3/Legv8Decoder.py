@@ -26,6 +26,7 @@ imdataMask = 0x1FFFE0
 
 class Dissembler:
 
+
     def get_opcode(self):
         for j in range(len(allInstr)):
             opcode.append(allInstr[j] >> 21)
@@ -67,6 +68,7 @@ for i in range(len(sys.argv)):
         print inputFileName
     elif (sys.argv[i] == '-o' and i < (len(sys.argv) - 1)):
         outputFileName = sys.argv[i + 1]
+
 # put instructions into a list then get the opcodes
 # into a separate list
 
