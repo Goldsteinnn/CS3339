@@ -10,7 +10,7 @@ arg2Str = []  # <type 'list'>: ['', ', R0', ', 264', '', ', 264', ', #48', ', R1
 arg3Str = []  # <type 'list'>: ['', ', #10', '(R0)', '', '(R0)', '', ', #2', '(R10)', '(R10)', '(R0)',...]
 mem = []  # <type 'list'>: [-1, -2, -3, 1, 2, 3, 0, 0, 5, -5, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0]
 binMem = []  # <type 'list'>: ['11111111111111111111111111111111', '11111111111111111111111111111110', ...]
-opcode = []
+opcode = []  # <type> 'list'>: ['11111111111', ...]
 
 rnMask = 0x3E0
 rmMask = 0x1F0000
@@ -35,7 +35,7 @@ class Dissembler:
                 arg1.append(((int(instructions[j], base=2) & rnMask) >> 5))
                 arg2.append(((int(instructions[j], base=2) & rmMask) >> 16))
                 arg3.append(((int(instructions[j], base=2) & rdMask) >> 0))
-                arg1Str.append("\tR" + str(arg3[j]))
+                arg1Str.append("R" + str(arg3[j]))
                 arg2Str.append(", R" + str(arg1[j]))
                 arg3Str.append(", R" + str(arg2[j]))
                 instrSpaced.append(str(binMem[j][0:11]) + " " + str(binMem[j][11:16]) + " " + str(binMem[j][16:22])
@@ -45,7 +45,7 @@ class Dissembler:
                 arg1.append(((int(instructions[j], base=2) & rnMask) >> 5))
                 arg2.append(((int(instructions[j], base=2) & rmMask) >> 16))
                 arg3.append(((int(instructions[j], base=2) & rdMask) >> 0))
-                arg1Str.append("\tR" + str(arg3[j]))
+                arg1Str.append("R" + str(arg3[j]))
                 arg2Str.append(", R" + str(arg1[j]))
                 arg3Str.append(", R" + str(arg2[j]))
                 instrSpaced.append(str(binMem[j][0:11]) + " " + str(binMem[j][11:16]) + " " + str(binMem[j][16:22])
@@ -55,7 +55,7 @@ class Dissembler:
         outFile = open(outputFileName + "_dis.txt", 'w')
         pc = 96
         for j in range(len(opcodeStr)):
-            print >> outFile, (instrSpaced[j] + "\t" + str(pc) + "\t" + opcodeStr[j] + arg1Str[j] + arg2Str[j] + arg3Str[j])
+            print >> outFile, (instrSpaced[j] + "\t" + str(pc) + "\t" + opcodeStr[j] + "\t" + arg1Str[j] + arg2Str[j] + arg3Str[j])
             pc += 4
 
     def write_file(self):
