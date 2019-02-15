@@ -58,14 +58,6 @@ class Dissembler:
             print >> outFile, (instrSpaced[j] + "\t" + str(pc) + "\t" + opcodeStr[j] + "\t" + arg1Str[j] + arg2Str[j] + arg3Str[j])
             pc += 4
 
-    def write_file(self):
-        outFile = open(outputFileName + "_dis.txt", 'w')
-
-
-
-
-
-
 #get input and output files from command line args
 for i in range(len(sys.argv)):
     if (sys.argv[i] == '-i' and i < (len(sys.argv) - 1)):
