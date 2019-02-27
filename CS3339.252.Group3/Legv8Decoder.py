@@ -23,6 +23,28 @@ addrMask = 0x1FF000
 addr2Mask = 0xFFFFE0
 imsftMask = 0x600000
 imdataMask = 0x1FFFE0
+bMask = 0x3FFFFFF
+
+#instruction variables
+ADD = 1112
+SUB = 1624
+B = 160
+AND = 1104
+ADDI = 1160
+ORR = 1360
+CBZ = 1440
+CBNZ = 1448
+SUBI = 1672
+MOVZ = 1684
+MOVK = 1940
+LSR = 1690
+LSL = 1691
+STUR = 1984
+LDUR = 1986
+ASR = 1692
+NOP = 0
+EOR = 1982
+
 
 class Dissembler:
 
@@ -33,7 +55,7 @@ class Dissembler:
 
     def findop(self):
         for j in range(len(opcode)):
-            if opcode[j] == 1112:
+            if opcode[j] == ADD:
                 opcodeStr.append("ADD")
                 arg1.append(((int(instructions[j], base=2) & rnMask) >> 5))
                 arg2.append(((int(instructions[j], base=2) & rmMask) >> 16))
@@ -43,7 +65,7 @@ class Dissembler:
                 arg3Str.append(", R" + str(arg2[j]))
                 instrSpaced.append(str(instructions[j][0:11]) + " " + str(instructions[j][11:16]) + " " + str(instructions[j][16:22])
                                    + " " + str(instructions[j][22:27]) + " " + str(instructions[j][27:32]))
-            elif opcode[j] == 1624:
+            elif opcode[j] == SUB:
                 opcodeStr.append("SUB")
                 arg1.append(((int(instructions[j], base=2) & rnMask) >> 5))
                 arg2.append(((int(instructions[j], base=2) & rmMask) >> 16))
@@ -53,12 +75,169 @@ class Dissembler:
                 arg3Str.append(", R" + str(arg2[j]))
                 instrSpaced.append(str(instructions[j][0:11]) + " " + str(instructions[j][11:16]) + " " + str(instructions[j][16:22])
                                    + " " + str(instructions[j][22:27]) + " " + str(instructions[j][27:32]))
+            elif opcode[j] == AND:
+                opcodeStr.append("AND")
+                arg1.append(((int(instructions[j], base=2) & rnMask) >> 5))
+                arg2.append(((int(instructions[j], base=2) & rmMask) >> 16))
+                arg3.append(((int(instructions[j], base=2) & rdMask) >> 0))
+                arg1Str.append("R" + str(arg3[j]))
+                arg2Str.append(", R" + str(arg1[j]))
+                arg3Str.append(", R" + str(arg2[j]))
+                instrSpaced.append(
+                    str(instructions[j][0:11]) + " " + str(instructions[j][11:16]) + " " + str(instructions[j][16:22])
+                    + " " + str(instructions[j][22:27]) + " " + str(instructions[j][27:32]))
+            elif opcode[j] == ORR:
+                opcodeStr.append("ORR")
+                arg1.append(((int(instructions[j], base=2) & rnMask) >> 5))
+                arg2.append(((int(instructions[j], base=2) & rmMask) >> 16))
+                arg3.append(((int(instructions[j], base=2) & rdMask) >> 0))
+                arg1Str.append("R" + str(arg3[j]))
+                arg2Str.append(", R" + str(arg1[j]))
+                arg3Str.append(", R" + str(arg2[j]))
+                instrSpaced.append(
+                    str(instructions[j][0:11]) + " " + str(instructions[j][11:16]) + " " + str(instructions[j][16:22])
+                    + " " + str(instructions[j][22:27]) + " " + str(instructions[j][27:32]))
+            elif opcode[j] == LSL:
+                opcodeStr.append("LSR")
+                arg1.append(((int(instructions[j], base=2) & rnMask) >> 5))
+                arg2.append(((int(instructions[j], base=2) & shmtMask) >> 10))
+                arg3.append(((int(instructions[j], base=2) & rdMask) >> 0))
+                arg1Str.append("R" + str(arg3[j]))
+                arg2Str.append(", R" + str(arg1[j]))
+                arg3Str.append(", #" + str(arg2[j]))
+                instrSpaced.append(
+                    str(instructions[j][0:11]) + " " + str(instructions[j][11:16]) + " " + str(instructions[j][16:22])
+                    + " " + str(instructions[j][22:27]) + " " + str(instructions[j][27:32]))
+            elif opcode[j] == LSR:
+                opcodeStr.append("LSL")
+                arg1.append(((int(instructions[j], base=2) & rnMask) >> 5))
+                arg2.append(((int(instructions[j], base=2) & shmtMask) >> 10))
+                arg3.append(((int(instructions[j], base=2) & rdMask) >> 0))
+                arg1Str.append("R" + str(arg3[j]))
+                arg2Str.append(", R" + str(arg1[j]))
+                arg3Str.append(", #" + str(arg2[j]))
+                instrSpaced.append(
+                    str(instructions[j][0:11]) + " " + str(instructions[j][11:16]) + " " + str(instructions[j][16:22])
+                    + " " + str(instructions[j][22:27]) + " " + str(instructions[j][27:32]))
+            elif opcode[j] == ASR:
+                opcodeStr.append("ASR")
+                arg1.append(((int(instructions[j], base=2) & rnMask) >> 5))
+                arg2.append(((int(instructions[j], base=2) & rmMask) >> 16))
+                arg3.append(((int(instructions[j], base=2) & rdMask) >> 0))
+                arg1Str.append("R" + str(arg3[j]))
+                arg2Str.append(", R" + str(arg1[j]))
+                arg3Str.append(", R" + str(arg2[j]))
+                instrSpaced.append(
+                    str(instructions[j][0:11]) + " " + str(instructions[j][11:16]) + " " + str(instructions[j][16:22])
+                    + " " + str(instructions[j][22:27]) + " " + str(instructions[j][27:32]))
+            elif opcode[j] == EOR:
+                opcodeStr.append("EOR")
+                arg1.append(((int(instructions[j], base=2) & rnMask) >> 5))
+                arg2.append(((int(instructions[j], base=2) & rmMask) >> 16))
+                arg3.append(((int(instructions[j], base=2) & rdMask) >> 0))
+                arg1Str.append("R" + str(arg3[j]))
+                arg2Str.append(", R" + str(arg1[j]))
+                arg3Str.append(", R" + str(arg2[j]))
+                instrSpaced.append(
+                    str(instructions[j][0:11]) + " " + str(instructions[j][11:16]) + " " + str(instructions[j][16:22])
+                    + " " + str(instructions[j][22:27]) + " " + str(instructions[j][27:32]))
+            elif opcode[j] == ADDI:
+                opcodeStr.append("ADDI")
+                arg1.append(((int(instructions[j], base=2) & rnMask) >> 5))
+                arg2.append(((int(instructions[j], base=2) & imMask) >> 10))
+                arg3.append(((int(instructions[j], base=2) & rdMask) >> 0))
+                arg1Str.append("R" + str(arg3[j]))
+                arg2Str.append(", R" + str(arg1[j]))
+                arg3Str.append(", #" + str(arg2[j]))
+                instrSpaced.append(
+                    str(instructions[j][0:10]) + " " + str(instructions[j][10:22] + " " + str(instructions[j][22:27]) +
+                                                           " " + str(instructions[j][27:32])))
+            elif opcode[j] == SUBI:
+                opcodeStr.append("SUBI")
+                arg1.append(((int(instructions[j], base=2) & rnMask) >> 5))
+                arg2.append(((int(instructions[j], base=2) & imMask) >> 10))
+                arg3.append(((int(instructions[j], base=2) & rdMask) >> 0))
+                arg1Str.append("R" + str(arg3[j]))
+                arg2Str.append(", R" + str(arg1[j]))
+                arg3Str.append(", #" + str(arg2[j]))
+                instrSpaced.append(
+                    str(instructions[j][0:10]) + " " + str(instructions[j][10:22] + " " + str(instructions[j][22:27]) +
+                                                           " " + str(instructions[j][27:32])))
+            elif opcode[j] == STUR:
+                opcodeStr.append("STUR")
+                arg1.append(((int(instructions[j], base=2) & rmMask) >> 0))
+                arg2.append(((int(instructions[j], base=2) & addrMask) >> 12))
+                arg3.append(((int(instructions[j], base=2) & rnMask) >> 5))
+                arg1Str.append("R" + str(arg3[j]))
+                arg2Str.append(", R" + str(arg1[j]))
+                arg3Str.append(", #" + str(arg2[j]))
+                instrSpaced.append(
+                    str(instructions[j][0:11]) + " " + str(instructions[j][11:20] + " " + str(instructions[j][20:22]) +
+                                                           " " + str(instructions[j][22:37]) + " " + str(instructions[j][27:32])))
+            elif opcode[j] == LDUR:
+                opcodeStr.append("LDUR")
+                arg1.append(((int(instructions[j], base=2) & rmMask) >> 0))
+                arg2.append(((int(instructions[j], base=2) & addrMask) >> 12))
+                arg3.append(((int(instructions[j], base=2) & rnMask) >> 5))
+                arg1Str.append("R" + str(arg3[j]))
+                arg2Str.append(", R" + str(arg1[j]))
+                arg3Str.append(", #" + str(arg2[j]))
+                instrSpaced.append(
+                    str(instructions[j][0:11]) + " " + str(instructions[j][11:20] + " " + str(instructions[j][20:22]) +
+                                                           " " + str(instructions[j][22:37]) + " " + str(instructions[j][27:32])))
+            elif opcode[j] == CBZ:
+                opcodeStr.append("CBZ")
+                arg1.append(((int(instructions[j], base=2) & addr2Mask) >> 5))
+                arg3.append(((int(instructions[j], base=2) & rdMask) >> 0))
+                arg1Str.append("R" + str(arg3[j]))
+                arg2Str.append(", #" + str(arg1[j]))
+                arg3Str.append("")
+                instrSpaced.append(
+                    str(instructions[j][0:8]) + " " + str(instructions[j][8:27] + " " + str(instructions[j][27:32])))
+            elif opcode[j] == CBNZ:
+                opcodeStr.append("CBNZ")
+                arg1.append(((int(instructions[j], base=2) & addr2Mask) >> 5))
+                arg3.append(((int(instructions[j], base=2) & rdMask) >> 0))
+                arg1Str.append("R" + str(arg3[j]))
+                arg2Str.append(", #" + str(arg1[j]))
+                arg3Str.append("")
+                instrSpaced.append(
+                    str(instructions[j][0:8]) + " " + str(instructions[j][8:27] + " " + str(instructions[j][27:32])))
+            elif opcode[j] == MOVZ:
+                opcodeStr.append("MOVZ")
+                arg1.append(((int(instructions[j], base=2) & imdataMask) >> 5))
+                arg3.append(((int(instructions[j], base=2) & rdMask) >> 0))
+                arg1Str.append("R" + str(arg3[j]))
+                arg2Str.append(", #" + str(arg1[j]))
+                arg3Str.append("")
+                instrSpaced.append(
+                    str(instructions[j][0:9]) + " " + str(instructions[j][9:11] + " " + str(instructions[j][11:27]) +
+                                                          " " + str(instructions[j][27:32])))
+            elif opcode[j] == MOVK:
+                opcodeStr.append("MOVK")
+                arg1.append(((int(instructions[j], base=2) & imdataMask) >> 5))
+                arg3.append(((int(instructions[j], base=2) & rdMask) >> 0))
+                arg1Str.append("R" + str(arg3[j]))
+                arg2Str.append(", #" + str(arg1[j]))
+                arg3Str.append("")
+                instrSpaced.append(
+                    str(instructions[j][0:9]) + " " + str(instructions[j][9:11] + " " + str(instructions[j][11:27]) +
+                                                          " " + str(instructions[j][27:32])))
+            elif opcode[j] == B:
+                opcodeStr.append("B")
+                arg3.append(((int(instructions[j], base=2) & bMask) >> 0))
+                arg1Str.append("#" + str(arg3[j]))
+                arg2Str.append("")
+                arg3Str.append("")
+                instrSpaced.append(
+                    str(instructions[j][0:6]) + " " + str(instructions[j][6:32]))
 
     def print_dissembled(self):
         outFile = open(outputFileName + "_dis.txt", 'w')
         pc = 96
         for j in range(len(opcodeStr)):
-            print >> outFile, (instrSpaced[j] + "\t" + str(pc) + "\t" + opcodeStr[j] + "\t" + arg1Str[j] + arg2Str[j] + arg3Str[j])
+            print >> outFile, (instrSpaced[j] + "\t" + str(pc) + "\t" + opcodeStr[j] + "\t" + arg1Str[j] + arg2Str[j] +
+                               arg3Str[j])
             pc += 4
 
     def run(self):
