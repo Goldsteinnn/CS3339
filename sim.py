@@ -21,6 +21,44 @@ class Simulator:
             i = i + 1
             cycle = cycle + 1
 
+    def apply_op(self):
+        for j in range(len(opcode)):
+            if opcode[j] == ADD:
+                print("")
+            elif opcode[j] == SUB:
+                print("")
+            elif opcode[j] == AND:
+                print("")
+            elif opcode[j] == ORR:
+                print("")
+            elif opcode[j] == LSL:
+                print("")
+            elif opcode[j] == LSR:
+                print("")
+            elif opcode[j] == ASR:
+                print("")
+            elif opcode[j] == EOR:
+                print("")
+            elif opcode[j] in ADDI:
+                print("")
+            elif opcode[j] in SUBI:
+                print("")
+            elif opcode[j] == STUR:
+                print("")
+            elif opcode[j] == LDUR:
+                print("")
+            elif opcode[j] in CBZ:
+                print("")
+            elif opcode[j] in CBNZ:
+                print("")
+            elif opcode[j] in MOVZ:
+                print("")
+            elif opcode[j] in MOVK:
+                print("")
+            elif opcode[j] in B:
+                print("")
+            elif opcode[j] == BREAK:
+                print("")
     def run(self):
         self.print_sim()
 
