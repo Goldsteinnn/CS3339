@@ -47,10 +47,7 @@ EOR = 1982
 BREAK = 2038
 
 #registers
-r00 = [0,0,0,0,0,0,0,0]
-r08 = [0,0,0,0,0,0,0,0]
-r16 = [0,0,0,0,0,0,0,0]
-r24 = [0,0,0,0,0,0,0,0]
+reg = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 
 
 class Simulator:
@@ -316,7 +313,7 @@ class Simulator:
             print >> outFile, ("====================")
             print >> outFile, ("cycle: " + str(cycle) + " " +  str(pc) + "\t" + opcodeStr[i] + "\t" + arg1Str[i] + arg2Str[i] +
                                arg3Str[i] + "\n")
-            print >> outFile, ("registers:\n" + "r00:\t" + str(r00) + "\n" + "r08:\t" + str(r08) + "\n" + "r16:\t" + str(r16) +                                      "\n" + "r24:\t" + str(r24) + "\n")
+            print >> outFile, ("registers:\n" + "r00:\t" + str(reg[0:7]) + "\n" + "r08:\t" + str(reg[8:15]) + "\n" + "r16:\t" + str(reg[16:23]) +                                      "\n" + "r24:\t" + str(reg[24:31]) + "\n")
             print >> outFile, ("data:")
             i = i + 1
             cycle = cycle + 1
