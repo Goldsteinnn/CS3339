@@ -6,22 +6,10 @@ reg = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 
 class Simulator:
 
-    def print_sim(self):
-        i = 0 #Iterates through opcode
+    def apply_op(self):
         cycle = 1
         pc = 96
-
         outFile = open(outputFileName + "_sim.txt", 'w')
-        while opcodeStr[i] != "BREAK":
-            print >> outFile, ("====================")
-            print >> outFile, ("cycle: " + str(cycle) + " " +  str(pc) + "\t" + opcodeStr[i] + "\t" + arg1Str[i] + arg2Str[i] +
-                               arg3Str[i] + "\n")
-            print >> outFile, ("registers:\n" + "r00:\t" + str(reg[0:7]) + "\n" + "r08:\t" + str(reg[8:15]) + "\n" + "r16:\t" + str(reg[16:23]) +                                      "\n" + "r24:\t" + str(reg[24:31]) + "\n")
-            print >> outFile, ("data:")
-            i = i + 1
-            cycle = cycle + 1
-
-    def apply_op(self):
         for j in range(len(opcode)):
             if opcode[j] == ADD:
                 print("")
@@ -40,7 +28,7 @@ class Simulator:
             elif opcode[j] == EOR:
                 print("")
             elif opcode[j] in ADDI:
-                print("")
+                reg[arg3[j]] = arg2[j] + reg[arg1[j]]
             elif opcode[j] in SUBI:
                 print("")
             elif opcode[j] == STUR:
@@ -59,8 +47,15 @@ class Simulator:
                 print("")
             elif opcode[j] == BREAK:
                 print("")
+            print >> outFile, ("====================")
+            print >> outFile, ("cycle: " + str(cycle) + " " +  str(pc) + "\t" + opcodeStr[j] + "\t" + arg1Str[j] + arg2Str[j] +
+                               arg3Str[j] + "\n")
+            print >> outFile, ("registers:\n" + "r00:\t" + str(reg[0:7]) + "\n" + "r08:\t" + str(reg[8:15]) + "\n" + "r16:\t" + str(reg[16:23]) +                                      "\n" + "r24:\t" + str(reg[24:31]) + "\n")
+            print >> outFile, ("data:")
+            cycle = cycle + 1
+            pc = pc + 4
     def run(self):
-        self.print_sim()
+        self.apply_op()
 
 # get input and output files from command line args
 for i in range(len(sys.argv)):
@@ -72,6 +67,5 @@ for i in range(len(sys.argv)):
 
 simulator = Simulator()
 simulator.run()
-
 
 
