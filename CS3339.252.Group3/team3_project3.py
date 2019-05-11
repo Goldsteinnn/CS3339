@@ -428,6 +428,15 @@ class InstructionFetch:
             return True
         else:
             return False
+class Mem
+  for i in premem
+    isSW = false
+    if(opcode[premem[i]] == ("LDUR"||"STUR")
+      isSW = true
+    cache = Cache()
+    if(cache.accessMem(premem[i],premem[i],isSW,reg[premem[i]])
+      premem[0] = premem[1]
+      premem[1] = -1
 
 
 #TODO: write this one -- finish
@@ -480,7 +489,6 @@ class Issue:
                     # found WAR in pre issue buff
                     issueMe = False
                     break
-
 # TODO: finish this one
 class Cache:
     # 4 sets of two blocks -- 2 words / block
