@@ -19,7 +19,7 @@ src1 = []
 src2 = []
 reg = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 data = []
-preIssue = [[-1, -1], [-1, -1], [-1, -1], [-1, -1]]  # [ value, instruction index ] x4
+preIssue = [-1, -1, -1, -1]  # [ instruction index ] x4
 preAlu = [-1, -1]   # [ instruction index, instruction index ]
 postAlu = [-1, -1]  # [ value, instruction index ]
 preMem = [-1, -1]   # [ instruction index, instruction index ]
@@ -73,8 +73,8 @@ def inputOutput():
             outputFileName = sys.argv[i + 1]
 
     # Todo: REMOVE HARDCODED FILENAMES BEFORE TURNING IT IN
-    inputFileName = "test3_bin.txt"
-    outputFileName = "team3_out"
+    #inputFileName = "test3_bin.txt"
+    #outputFileName = "team3_out"
     return inputFileName, outputFileName
 
 
@@ -504,6 +504,7 @@ class Alu:
         self.reg = reg
 
     def math(self):
+
         # looks for opcode of instruction index in preAlu buffer
         # puts result of calculation into postAlu[0], index of instruction into postAlu[1]
         if opcode[self.pre[0]] == ADD:
@@ -531,7 +532,7 @@ class Alu:
             self.post[0] = self.reg[self.arg1[self.pre[0]]] % 0x100000000 >> self.arg2[self.pre[0]]
             self.post[1] = self.pre[0]
         elif opcode[self.pre[0]] in ADDI:
-            self.post[0] = self.reg[self.arg1[self.pre[0]]] + self.arg2[self.pre[0]]
+            self.post[0] = int(self.reg[self.arg1[self.pre[0]]] + self.arg2[self.pre[0]])
             self.post[1] = self.pre[0]
         elif opcode[self.pre[0]] in SUBI:
             self.post[0] = self.reg[self.arg1[self.pre[0]]] - self.arg2[self.pre[0]]
@@ -540,14 +541,15 @@ class Alu:
             self.post[0] = self.arg1[self.pre[0]] << (self.arg2[self.pre[0]] * 16)
             self.post[1] = self.pre[0]
         elif opcode[self.pre[0]] in MOVK:
-            self.post[0] += self.arg1[self.pre[0]] << (self.arg2[self.pre[0]] * 16)
+            self.post[0] += int(self.arg1[self.pre[0]] << (self.arg2[self.pre[0]] * 16))
             self.post[1] = self.pre[0]
+
+        self.pre[0] = self.pre[1]
+        self.pre[1] = -1
 
     def run(self):
         if self.pre[0] != -1:
             self.math()
-        self.pre[0] = self.pre[1]
-        self.pre[1] = -1
 
  # TODO: write this one -- no idea what it's doing
 class Mem:
@@ -576,7 +578,7 @@ class Mem:
           isSW = True
         elif self.opcode[self.premem[0]] == LDUR:
           isLD = True
-    #if hits and STUR then data in sent to cache 
+    #if hits and STUR then data in sent to cache
         cacheData = cache.accessMem(self.premem[0], self.premem[0], isSW, reg[self.premem[0]])
     #if hits and LDUR then data is sent to postmem
     #buffers gets updated
@@ -591,13 +593,15 @@ class Mem:
         self.mem()
 
 
-# TODO : write this one -- need cache
 class InstructionFetch:
 
     it = 0  # iterator for fetching instructions into the buffer from allinstr
-    isStalled = False
+    isStalled = 0  # number of cycles we're stalled for
+    numFetched = 0
+    breakFlag = False
+    preIssueFull = False
 
-    def __init__(self, instrs, opcodes, mem, valids, addrs, args1, args2, args3, numInstrs, dest, src1, src2):
+    def __init__(self, instrs, opcodes, mem, valids, addrs, args1, args2, args3, numInstrs, dest, src1, src2, cache, preIssue):
         self.instruction = instrs
         self.opcode = opcodes
         self.memory = mem
@@ -611,6 +615,8 @@ class InstructionFetch:
         self.src2Reg = src2
         self.pc = PC
         self.reg = reg
+        self.Cache = cache
+        self.preIssue = preIssue
 
     def fetch(self):
         # during - We will fetch up to two empty slots in the preissue buffer.
@@ -619,42 +625,68 @@ class InstructionFetch:
         # The branch will never get posted to the pre issue buffer.
         # Checks for break  instruction and if found perfoms clean up making  sure all instructions finish. Else we don't have a break instruction.
         # If we can't get the first instruction out of cache we can't fetch the next instruction.
-        spaceOne = True
-        spaceTwo = True
 
-        for m in range(2):
-            # 1.	If the fetch unit is stalled, no instruction can be fetched at the current cycle (no pre-fetching).
-            # The fetch unit can be stalled due to a branch instruction or a cache miss (cache is described below)
-            if self.isStalled:
+        # 1.	If the fetch unit is stalled, no instruction can be fetched at the current cycle (no pre-fetching).
+        # The fetch unit can be stalled due to a branch instruction or a cache miss (cache is described below)
+        if self.isStalled > 0:
+            self.isStalled -= 1
+            return True
+
+        # find current largest empty space in preIssue
+        preIssueIndex = 0
+        for m in range(len(self.preIssue)):
+            if self.preIssue[m] == -1:
                 break
-            if preIssue[2][0] != -1:
-                spaceOne = False
-            if preIssue[3][0] != -1:
-                spaceTwo = False
+            else:
+                preIssueIndex += 1
 
-        # 2.	If there is no room in the pre-issue buffer, no instructions can be fetched at the current cycle
-        if not spaceOne and not spaceTwo:
-            return True    # no space in buffer
+        # 2. If there is no room in the pre-issue buffer, no instructions can be fetched at the current cycle
+        if preIssueIndex == 4:
+            self.preIssueFull = True
 
-        # 3.	If there is only one empty slot in the pre-issue buffer, only one instruction will be fetched
-        elif spaceOne:
-            hit = Cache.accessMem(cache, -1, self.it, False, -1)
-            if hit:
-                preIssue[2][0] = self.instruction[self.it]  # load value
-                preIssue[2][1] = self.it    # load index
-                if opcode[self.it] == B:
-                    self.branch()
-                if opcode[self.it] == BREAK:
+        while self.numFetched != 2:
+            if self.preIssueFull:
+                return True
+            if self.breakFlag:
+                if (self.preIssue == [-1, -1, -1, -1]
+                        and preAlu == [-1, -1]
+                        and postAlu == [-1, -1]
+                        and preMem == [-1, -1]
+                        and postMem == [-1, -1]):
+                    # all buffers empty
                     return False
-            # TODO: add what happens when it isn't in the cache
-        elif spaceTwo:
-            hit = Cache.accessMem(cache, -1, self.it, False, -1)
-            if hit:
-                preIssue[3][0] = self.instruction[self.it]  # load value
-                preIssue[3][1] = self.it  # load index
-                if opcode[self.it] == BREAK:
+                else:
                     return False
-            # TODO: add what happens when it isn't in the cache
+            else:
+                hit = self.Cache.accessMem(-1, self.it, False, -1)
+                if hit[0] and not self.preIssueFull:
+                    if opcode[self.it] == B:
+                        self.branch()
+                    # TODO: add support for CBZ & CBNZ
+                    elif opcode[self.it] == BREAK:
+                        self.breakFlag = True
+                        return True
+                    else:
+                        # find first empty space in preIssue, assign hit value to that
+                        # then go to next instruction
+                        r = 0
+                        while self.preIssue[r] != -1:
+                            if self.preIssueFull:
+                                break
+                            r += 1
+                            if self.preIssue[r] == -1:
+                                break
+                            elif r > 4:
+                                break
+                        self.preIssue[r] = self.it
+                        self.it += 1
+                        self.numFetched += 1
+                elif not hit[0]:
+                    # stall for one cycle
+                    return True
+        self.numFetched = 0
+        return True
+
     def branch(self):
         if opcode[self.it] in B:
             self.pc += arg3[self.it]
@@ -667,14 +699,16 @@ class InstructionFetch:
         return True
 
     def run(self):
-        if self.fetch():
+        cont = self.fetch()
+        if cont:
             return True
         else:
             return False
 
 
-# TODO: write this one -- finish
+# TODO: write this one -- currently just moving from pre to post
 class Issue:
+    numInPreIssueBuff = 0
     def __init__(self, instrs, opcodes, mem, valids, addrs, args1, args2, args3, numInstrs, dest, src1, src2):
         self.instruction = instrs
         self.opcode = opcodes
@@ -687,24 +721,38 @@ class Issue:
         self.destReg = dest
         self.src1Reg = src1
         self.src2Reg = src2
-        preBuff = [-1, -1, -1, -1]
-        curr = preBuff[0]
-        numIssued = 0
-        numInPreIssueBuff = len(preBuff)
 
-#   def __init__(self, sim, instrs, opcodes, mem, valids, addrs, args1, args2, args3, numInstrs, dest, src1, src2):
-#       self.instruction = instrs
-#       self.opcode = opcodes
-#       self.memory = mem
-#       self.address = addrs
-#       self.numInstructions = numInstrs
-#       self.arg1 = arg1
-#       self.arg2 = arg2
-#       self.arg3 = arg3
-#       self.destReg = dest
-#       self.src1Reg = src1
-#       self.src2Reg = src2
-#       self.Sim = sim
+    def pI(self):
+        spaceInPreAlu = 0
+        for k in range(len(preAlu)):
+            if preAlu[k] == -1:
+                spaceInPreAlu += 1  # index of filled space in preAlu
+        spaceInPreMem = 0
+        for k in range(len(preMem)):
+            if preMem[k] == -1:
+                spaceInPreMem += 1
+        r = 0
+        while preIssue[r] != -1:
+            if self.instruction[preIssue[r]] >> 21 != LDUR and self.instruction[preIssue[r]] >> 21 != STUR:
+                if spaceInPreAlu > 0:
+                    preAlu[spaceInPreAlu % 2] = preIssue[r]
+                    print "\tpreAlu", preAlu
+                    if r+1 < 3:
+                        preIssue[r] = preIssue[r+1]
+                        preIssue[r+1] = -1
+                    else:
+                        preIssue[r] = -1
+                    spaceInPreAlu -= 1
+            elif self.instruction[preIssue[r]] >> 21 == LDUR and self.instruction[preIssue[r]] >> 21 == STUR:
+                if spaceInPreMem > 0:
+                    preMem[spaceInPreMem % 2] = preIssue[r]
+                    spaceInPreMem -= 1
+
+
+    def run(self):
+        self.pI()
+
+
 #
 #   # 1. Determine what's in the preIssueBuff at start of the cycle to get initial value ( numInIssueAtClockCycleBegin)
 #   # 2. Process instructions in preIssueBuff in 0 .. 3 order. Look for hazards of all types between mostly adjacent instructions.
@@ -770,7 +818,6 @@ class Cache:
     def __init__(self, instrs, opcodes, mem, valids, addrs, args1, args2, args3, numInstrs, dest, src1, src2):
         self.instruction = instrs
         self.opcode = opcodes
-        self.memory = mem
         self.address = addrs
         self.numInstructions = numInstrs
         self.arg1 = arg1
@@ -779,6 +826,8 @@ class Cache:
         self.destReg = dest
         self.src1Reg = src1
         self.src2Reg = src2
+        self.memory = instrs + mem
+
 
     def accessMem(self, memIndex, instructionIndex, isWriteToMem, dataToWrite):
         dataWord = 0
@@ -788,6 +837,8 @@ class Cache:
         address2 = 0
         assocblock = 0
         hit = False
+
+        #print "1"
         # 1. Given this index, calculate the address of the memory location (example 0 -> 96),
         # figure out which block in set (dataword = 0 or 1)
         #       Check if instruction or data and calculate appropriate address
@@ -795,6 +846,7 @@ class Cache:
             address = 96 + (4 * instructionIndex)
         else:
             address = 96 + (4 * Sim.numInstructions) + (4 * memIndex)
+        #print "2"
         # 2. Based on address, align address to two word alignment and create addresses for the two words in block
         # (address1 and address2) based on dataword value.
         # Remember, we are enforcing that block 0 is associated with address 96+ n8!
@@ -809,23 +861,26 @@ class Cache:
             dataWord = 1  # block 1 was the address
             address1 = address - 4
             address2 = address
+
         # 3. Get the word value for each address (data1 and data2) from the memory. We are not in cache yet!
+        # if address1 is an instruction go to instruction list and get it
         if address1 < 96 + (4 * Sim.numInstructions):
-            data1 = Sim.instruction[Sim.getIndexOfMemAddress(address1, False)]
+            data1 = self.instruction[Sim.getIndexOfMemAddress(address1, False)]
         else:
-            data1 = Sim.memory[Sim.getIndexOfMemAddress(address1, False)]
-        # TODO: add data2 handling
-        if address2 < 96 + (4 * Sim.numInstructions):
-            data2 = Sim.instruction[Sim.getIndexOfMemAddress(address2, False)]
+            data1 = self.memory[Sim.getIndexOfMemAddress(address1, False)]
+        if address2 < 100 + (4 * Sim.numInstructions):
+            data2 = self.instruction[Sim.getIndexOfMemAddress(address2, False)]
         else:
-            data2 = Sim.memory[Sim.getIndexOfMemAddress(address2, False)]
+            data2 = self.memory[Sim.getIndexOfMemAddress(address2, False)]
 
             # 4. IF WRITING TO MEM (memIndex != -1 and isWriteToMem ==1)
         #       Overwrite either data1 or data2 with the passed in dataToWrite based on dataword value
+
         if isWriteToMem and dataWord == 0:
             data1 = dataToWrite
         elif isWriteToMem and dataWord == 1:
             data2 = dataToWrite
+
         # 5. Decode the cache address from the address for word0 (tag, set)
         setNum = (address1 & self.setMask) >> 3
         tag = (address1 & self.tagMask) >> 5
@@ -841,35 +896,40 @@ class Cache:
             if self.justMissedList.count(address1) == 0:
                 self.justMissedList.append(address1)
                 return [False, 0]
+
         # 7. If hit and we are writing to mem
         #   update cache blocks dirty bit
         #   recognize that we should only be writing data to cache other than the initial load
-        #   return (True, word from requested set/block)
-        if hit and isWriteToMem:
-            self.cacheSets[setNum][assocblock][1] = 1
-            self.lruBit[setNum] = (assocblock + 1) % 2
-            self.cacheSets[setNum][assocblock][dataWord + 3] = dataToWrite
+        if(hit):#   return (True, word from requested set/block)
+          if hit and isWriteToMem:
+              self.cacheSets[setNum][assocblock][1] = 1
+              self.lruBit[setNum] = (assocblock + 1) % 2
+              self.cacheSets[setNum][assocblock][dataWord + 3] = dataToWrite
+
             # 8. If hit and we are NOT writing to mem
             #   update set LRU bit, return (True, word requested from set / block)
-        elif hit:
-            self.lruBit[setNum] = (assocblock + 1) % 2
-            return [True, self.cacheSets[setNum][assocblock][dataWord + 3]]
+          elif hit:
+              self.lruBit[setNum] = (assocblock + 1) % 2
+              return [True, self.cacheSets[setNum][assocblock][dataWord + 3]]
         # not returning yet means we have a miss
 
         # 9. If miss figure out if this is the initial miss or the second miss
         if address1 in self.justMissedList:
             while self.justMissedList.count(address1) > 0:
                 self.justMissedList.remove(address1)
+                # 12. Only other case is first miss.
+                #   Add address to justMissedList, return (False, 0)
 
         else:
-            # Valid MISS on cycle
+            # VALID MISS on cycle
             # add the memory address to the just missed list
             if self.justMissedList.count(address1) == 0:
                 self.justMissedList.append(address1)
-            return [False, 0]
+                return False, 0
 
         # 10. If second miss we need to go to memory and get the appropriate data and if there is already something there
         # we need to first write back if we have a dirty DATA entry in the cache where we need to put the fetched word.
+
         if self.cacheSets[setNum][self.lruBit[setNum]][1] == 1:
             # write back the memory address asociated with the block
             wbAddr = self.cacheSets[setNum][self.lruBit[setNum]][2]  # tag
@@ -879,47 +939,40 @@ class Cache:
             # we will, we better,  only have dirty cache entries for data mem, not instructions
             # update data mem locations!
             # if the cache tag: set gives us a double word aligned value ie. 96,104,
-            # Lets say that word 0 is the last instruction and word on is the first data element
+            # Lets say that word 0 is the last instruction and word is on the first data element
             # we would only want to update the second word
-            # But if lets say we have two data elemeents, then the cache would have two data element and we would write
-            # back both even if one was dirty.  This takes care of the boundry condition.
-            if (wbAddr >= (Sim.numInstructions * 4) + 96):
-                Sim.memory[Sim.getIndexOfMemAddress(wbAddr)] = self.cacheSets[setNum][self.lruBit[setNum]][3]
-            if (wbAddr + 4 >= (Sim.numInstructions * 4) + 96):
-                Sim.memory[Sim.getIndexOfMemAddress(wbAddr + 4)] = self.cacheSets[setNum][self.lruBit[setNum]][4]
+            # But if lets say we have two data elements, then the cache would have two data element and we would write
+            # back both even if one was dirty.  This takes care of the boundary condition.
+            if wbAddr >= (Sim.numInstructions * 4) + 96:
+                Sim.memory[Sim.getIndexOfMemAddress(wbAddr, False)] = self.cacheSets[setNum][self.lruBit[setNum]][3]
+            if wbAddr + 4 >= (Sim.numInstructions * 4) + 96:
+                Sim.memory[Sim.getIndexOfMemAddress(wbAddr + 4, False)] = self.cacheSets[setNum][self.lruBit[setNum]][4]
             # now update the cache flag bits
-            self.cacheSets[setNum][self.lruBit[setNum]][0] = 1  # valid  we are writing a block
-            self.cacheSets[setNum][self.lruBit[setNum]][1] = 0  # reset the dirty bit
-            if isWriteToMem:
-                self.cacheSets[setNum][self.lruBit[setNum]][
-                    1] = 1  # dirty if is data mem is dirty again, intruction mem never dirty
-            # update both words in the actual cache block in set
-            self.cacheSets[setNum][self.lruBit[setNum]][2] = tag  # tag
-            self.cacheSets[setNum][self.lruBit[setNum]][3] = data1  # data
-            self.cacheSets[setNum][self.lruBit[setNum]][4] = data2  # nextData
-            self.lruBit[setNum] = (self.lruBit[setNum] + 1) % 2  # set lru to show block is recently used
-            # finally
-            return [True, self.cacheSets[setNum][(self.lruBit[setNum] + 1) % 2][
-                dataWord + 3]]  # dataword was the actual word that generated the hit
-            # 11. Then return (TRUE , word requested from cache)
-            # 12. Only other case is first miss.
-            #   Add address to justMissedList, return (False, 0)
-
-
-
+        self.cacheSets[setNum][self.lruBit[setNum]][0] = 1  # valid we are writing a block
+        self.cacheSets[setNum][self.lruBit[setNum]][1] = 0  # reset the dirty bit
+        if isWriteToMem:
+            self.cacheSets[setNum][self.lruBit[setNum]][1] = 1  # dirty if is data mem is dirty again, instruction mem never dirty
+        # update both words in the actual cache block in set
+        self.cacheSets[setNum][self.lruBit[setNum]][2] = tag  # tag
+        self.cacheSets[setNum][self.lruBit[setNum]][3] = data1  # data
+        self.cacheSets[setNum][self.lruBit[setNum]][4] = data2  # nextData
+        self.lruBit[setNum] = (self.lruBit[setNum] + 1) % 2  # set lru to show block is recently used
+        # finally
+        # 11. Then return (TRUE , word requested from cache)
+        return True, self.cacheSets[setNum][(self.lruBit[setNum] + 1) % 2][dataWord + 3]  # dataword was the actual word that generated the hit
 
 
 # main simulator class -- pulls all other classes together
 class SimClass:
 
     # init start values
-    cycle = 0
+    cycle = 1
     startAddress = 96 + (4 * len(opcode))  # PC at break + 4
 
-    def __init__(self, instrs, opcodes, mem, valids, addrs, args1, args2, args3, numInstrs, dest, src1, src2, WB, ALU, MEM, Issue, fetch, cache):
+    def __init__(self, instrs, opcodes, mem, valids, addrs, args1, args2, args3, numInstrs, dest, src1, src2,
+                 WB, ALU, MEM, Issue, fetch, cache, reg, preIssue, preAlu, preMem, postAlu, postMem):
         self.instruction = instrs
         self.opcode = opcodes
-        self.memory = mem
         self.address = addrs
         self.numInstructions = numInstrs
         self.arg1 = arg1
@@ -928,6 +981,13 @@ class SimClass:
         self.destReg = dest
         self.src1Reg = src1
         self.src2Reg = src2
+        self.memory = instrs + mem
+        self.reg = reg
+        self.preIssue = preIssue
+        self.preAlu = preAlu
+        self.preMem = preMem
+        self.postAlu = postAlu
+        self.postMem = postMem
 
         # pipeline components
         self.WB = WB
@@ -938,66 +998,68 @@ class SimClass:
         self.cache = cache
 
     def printState(self):
-        outFile = open(disassemble.outputFileName + "_pipeline.txt", 'w')
+        outFile = open(disassemble.outputFileName + "_pipeline.txt", 'a')
 
         # store each results of each cycle in outFile
         print >> outFile, "--------------------"
         print >> outFile, "Cycle:" + str(self.cycle) + "\n"
         # print buffer and queue
         print >> outFile, "Pre-Issue Buffer: "
-        if preIssue[0][0] != -1:
-            print >> outFile, "\tEntry 0:" + "\t", "[" + opcodeStr[preIssue[0][1]] + "\t" + arg1Str[preIssue[0][1]] + arg2Str[preIssue[0][1]] + arg3Str[preIssue[0][1]] + "]"
+        if preIssue[0] != -1:
+            print >> outFile, "\tEntry 0:" + "\t", "[" + opcodeStr[preIssue[0]] + "\t" + arg1Str[preIssue[0]] + arg2Str[preIssue[0]] + arg3Str[preIssue[0]] + "]"
         else:
             print >> outFile, "\tEntry 0:" + "\t"
-        if preIssue[1][0] != -1:
-            print >> outFile, "\tEntry 1:" + "\t", "[" + opcodeStr[preIssue[1][1]] + "\t" + arg1Str[preIssue[1][1]] + arg2Str[preIssue[1][1]] + arg3Str[preIssue[1][1]] + "]"
+        if preIssue[1] != -1:
+            print >> outFile, "\tEntry 1:" + "\t", "[" + opcodeStr[preIssue[1]] + "\t" + arg1Str[preIssue[1]] + arg2Str[preIssue[1]] + arg3Str[preIssue[1]] + "]"
         else:
             print >> outFile, "\tEntry 1:" + "\t"
-        if preIssue[2][0] != -1:
-            print >> outFile, "\tEntry 2:" + "\t", "[" + opcodeStr[preIssue[2][1]] + "\t" + arg1Str[preIssue[2][1]] + arg2Str[preIssue[2][1]] + arg3Str[preIssue[2][1]] + "]"
+        if preIssue[2] != -1:
+            print >> outFile, "\tEntry 2:" + "\t", "[" + opcodeStr[preIssue[2]] + "\t" + arg1Str[preIssue[2]] + arg2Str[preIssue[2]] + arg3Str[preIssue[2]] + "]"
         else:
             print >> outFile, "\tEntry 2:" + "\t"
-        if preIssue[3][0] != -1:
-            print >> outFile, "\tEntry 3:" + "\t", "[" + opcodeStr[preIssue[3][1]] + "\t" + arg1Str[preIssue[3][1]] + arg2Str[preIssue[3][1]] + arg3Str[preIssue[3][1]] + "]"
+        if preIssue[3] != -1:
+            print >> outFile, "\tEntry 3:" + "\t", "[" + opcodeStr[preIssue[3]] + "\t" + arg1Str[preIssue[3]] + arg2Str[preIssue[3]] + arg3Str[preIssue[3]] + "]"
         else:
             print >> outFile, "\tEntry 3:" + "\t"
+
         print >> outFile, "Pre_ALU Queue:"
         if preAlu[0] != -1:
-            print >> outFile, "\tEntry 0:" + "\t", preAlu[0]
+            print >> outFile, "\tEntry 0:" + "\t", "[" + opcodeStr[preAlu[0]] + "\t" + arg1Str[preAlu[0]] + arg2Str[preAlu[0]] + arg3Str[preAlu[0]] + "]"
         else:
             print >> outFile, "\tEntry 0:" + "\t"
         if preAlu[1] != -1:
-            print >> outFile, "\tEntry 1:" + "\t", preAlu[1]
+            print >> outFile, "\tEntry 1:" + "\t", "[" + opcodeStr[preAlu[1]] + "\t" + arg1Str[preAlu[1]] + arg2Str[preAlu[1]] + arg3Str[preAlu[1]] + "]"
         else:
             print >> outFile, "\tEntry 1:" + "\t"
+
         print >> outFile, "Post_ALU Queue"
         if postAlu[0] != -1:
-            print >> outFile, "\tEntry 0:" + "\t", postAlu[0]
+            print >> outFile, "\tEntry 0:" + "\t", "[" + opcodeStr[postAlu[1]] + "\t" + arg1Str[postAlu[1]] + arg2Str[postAlu[1]] + arg3Str[postAlu[1]] + "]"
         else:
             print >> outFile, "\tEntry 0:" + "\t"
         print >> outFile, "Pre_MEM Queue"
         if preMem[0] != -1:
-            print >> outFile, "\tEntry 0:" + "\t", preMem[0]
+            print >> outFile, "\tEntry 0:" + "\t", "[" + opcodeStr[preMem[0]] + "\t" + arg1Str[preMem[0]] + arg2Str[preMem[0]] + arg3Str[preMem[0]] + "]"
         else:
             print >> outFile, "\tEntry 0:" + "\t"
         if preMem[1] != -1:
-            print >> outFile, "\tEntry 1:" + "\t", preMem[1]
+            print >> outFile, "\tEntry 1:" + "\t", "[" + opcodeStr[preMem[1]] + "\t" + arg1Str[preMem[1]] + arg2Str[preMem[1]] + arg3Str[preMem[1]] + "]"
         else:
             print >> outFile, ("\tEntry 1:" + "\t")
         print >> outFile, "Post_MEM Queue"
         if postMem[0] != -1:
-            print >> outFile, "\tEntry 0:" + "\t", postMem[0]
+            print >> outFile, "\tEntry 0:" + "\t", "[" + opcodeStr[postMem[1]] + "\t" + arg1Str[postMem[1]] + arg2Str[postMem[1]] + arg3Str[postMem[1]] + "]"
         else:
             print >> outFile, "\tEntry 0:" + "\t"
         # print registers
         print >> outFile, "\nregisters:",
-        for q in range(len(reg)):
+        for q in range(len(self.reg)):
             if q % 8 == 0:
                 if q < 10:
                     print >> outFile, "\nr0" + str(q) + ":",
                 else:
                     print >> outFile, "\nr" + str(q) + ":",
-            print >> outFile, reg[q], "\t",
+            print >> outFile, self.reg[q], "\t",
 
         # print cache
         print >> outFile, "\n\nCache"
@@ -1033,22 +1095,51 @@ class SimClass:
         else:
             return False
 
-    def getIndexOfMemAddress(self, address, hitOrMiss):
-        for k in range(len(data)):
-            if data[k] == address:
-                return k
-        # return -1 if nothing found
-        return -1
+    def getIndexOfMemAddress(self, address, isInst):
+        memAddr = address - 96
+        if memAddr < len(self.instruction):
+            return memAddr
+        else:
+            # address is out of range, return garbage
+            return -1
+
 
     def run(self):
         go = True
         while go:
+            print "WB:"
             self.WB.run()
+
+            print "ALU:"
+            print "\tpreAlu", self.preAlu
+            print "\tpostAlu", self.postAlu
             self.ALU.run()
+            print "\tpreAlu", self.preAlu
+            print "\tpostAlu", self.postAlu
+
+            print "MEM:"
             self.MEM.run()
+            print "\tpreAlu", self.preAlu
+            print "\tpostAlu", self.postAlu
+
+            print "Issue:"
+            self.Issue.run()
+            print "\tpreAlu", self.preAlu
+            print "\tpostAlu", self.postAlu
+
+            print "fetch:"
             go = self.fetch.run()
+            print "\tpreAlu", self.preAlu
+            print "\tpostAlu", self.postAlu
+
+            print "printState:"
             self.printState()
+            print "\tpreAlu", self.preAlu
+            print "\tpostAlu", self.postAlu
+
+            print "\ncycle:", self.cycle
             self.cycle += 1
+
 # end of SimClass
 
 
@@ -1058,12 +1149,11 @@ numInst = len(allInstr)
 disassemble = Dissembler(allInstr, opcode, mem, 0, 96, arg1, arg2, arg3, len(allInstr), dest, src1, src2, arg1Str, arg2Str, arg3Str, opcodeStr, instrSpaced)
 disassemble.run()
 WB = WriteBack(allInstr, opcode, mem, 0, 96, arg1, arg2, arg3, len(allInstr), dest, src1, src2, postAlu, postMem, reg)
-cache = Cache(allInstr, opcode, mem, 0, 96, arg1, arg2, arg3, len(allInstr), dest, src1, src2)
 ALU = Alu(allInstr, opcode, mem, 0, 96, arg1, arg2, arg3, len(allInstr), dest, src1, src2, preAlu, postAlu, reg)
+cache = Cache(allInstr, opcode, mem, 0, 96, arg1, arg2, arg3, len(allInstr), dest, src1, src2)
 MEM = Mem(allInstr, opcode, mem, 0, 96, arg1, arg2, arg3, len(allInstr), dest, src1, src2, preAlu, postAlu, cache)
 Issue = Issue(allInstr, opcode, mem, 0, 96, arg1, arg2, arg3, len(allInstr), dest, src1, src2)
-fetch = InstructionFetch(allInstr, opcode, mem, 0, 96, arg1, arg2, arg3, len(allInstr), dest, src1, src2)
-cache = Cache(allInstr, opcode, mem, 0, 96, arg1, arg2, arg3, len(allInstr), dest, src1, src2)
-Sim = SimClass(allInstr, opcode, mem, 0, 96, arg1, arg2, arg3, len(allInstr), dest, src1, src2, WB, ALU, MEM, Issue, fetch, cache)
-Sim.run()
+fetch = InstructionFetch(allInstr, opcode, mem, 0, 96, arg1, arg2, arg3, len(allInstr), dest, src1, src2, cache, preIssue)
+Sim = SimClass(allInstr, opcode, mem, 0, 96, arg1, arg2, arg3, len(allInstr), dest, src1, src2, WB, ALU, MEM, Issue, fetch, cache, reg, preIssue, preAlu, preMem, postAlu, postMem)
 
+Sim.run()
